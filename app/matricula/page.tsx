@@ -44,6 +44,7 @@ import {
   GraduationCap,
   IdCard,
   Loader2,
+  Upload,
   User,
   CheckCircle2,
   AlertCircle,
@@ -252,13 +253,21 @@ export default function MatriculaPage() {
       formData.append("medicalCertificate", data.medicalCertificate);
     }
 
-    // ✅ IMPORTANTE: Não defina Content-Type manualmente
+    // ✅ NÃO defina Content-Type manualmente
     const res = await fetch("/api/matricula", {
       method: "POST",
-      body: formData, // FormData define Content-Type automaticamente
+      body: formData,
     });
 
-    const result = await res.json();
+    // ✅ Verificar se a resposta é JSON
+    const text = await res.text();
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      console.error("❌ Resposta não é JSON:", text);
+      throw new Error(`Erro no servidor: ${text.substring(0, 100)}`);
+    }
 
     if (!res.ok) {
       throw new Error(result.error || "Erro ao processar matrícula");
@@ -292,18 +301,27 @@ export default function MatriculaPage() {
     const toastId = toast.loading("Processando matrícula...");
 
     try {
+      console.log("📤 Enviando dados:", {
+        inscricaoId: inscricao?.id,
+        bi: data.bi,
+        birthDate: data.birthDate,
+        periodoId: data.periodoId,
+        photo: data.photo instanceof File ? data.photo.name : 'N/A',
+        certificate: data.certificate instanceof File ? data.certificate.name : 'N/A',
+        medicalCertificate: data.medicalCertificate instanceof File ? data.medicalCertificate.name : 'N/A',
+      });
+
       // 1. Criar matrícula
       const matriculaResult = await criarMatricula(data);
       setMatriculaId(matriculaResult.id);
 
       toast.loading("Criando pagamento...", { id: toastId });
 
-      // 2. Criar pagamento com referência
+      // 2. Criar pagamento
       const pagamentoResult = await criarPagamento(matriculaResult.id, data.formaPagamento);
       
       setPagamentoInfo(pagamentoResult.pagamento);
       setPagamentoCriado(true);
-
       setUploadProgress(100);
 
       toast.success("Matrícula criada!", {
