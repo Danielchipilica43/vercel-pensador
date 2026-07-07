@@ -1,0 +1,275 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========== TABELAS DE STATUS (LOOKUP TABLES) ==========
+
+model UserNivel {
+  id        Int      @id @default(autoincrement())
+  nome      String   @unique // "ADMIN", "GESTOR", "VISUALIZADOR"
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Genero {
+  id         Int      @id @default(autoincrement())
+  nome       String   @unique // "Masculino", "Feminino", "Outro"
+  users      User[]
+  inscricoes Inscricao[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model StatusInscricao {
+  id         Int      @id @default(autoincrement())
+  nome       String   @unique // "PENDENTE", "APROVADA", "REJEITADA"
+  inscricoes Inscricao[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model StatusMatricula {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique // "ATIVA", "CONCLUIDA", "CANCELADA", "PENDENTE"
+  matriculas  Matricula[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model StatusPagamento {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique 
+  descricao   String?
+  pagamentos  Pagamento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Turno {
+  id        Int      @id @default(autoincrement())
+  nome      String   @unique // "MANHA", "TARDE", "NOITE"
+  turmas    Turma[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Periodo {
+  id        Int      @id @default(autoincrement())
+  nome      String   @unique // "2024.1", "2024.2", "2025.1"
+  matriculas Matricula[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  nome         String    @unique
+  senha        String
+  generoId     Int
+  nivelId      Int
+  ativo        Boolean   @default(true)
+  ultimoAcesso DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  genero      Genero     @relation(fields: [generoId], references: [id])
+  nivel       UserNivel  @relation(fields: [nivelId], references: [id])
+  aluno       Aluno?
+  resetToken        String? @unique
+  resetTokenExpires DateTime?
+
+}
+ 
+model Aluno {
+  id          Int      @id @default(autoincrement())
+  matriculaId Int      @unique
+  turmaId     Int
+  userId      Int?     @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?     @relation(fields: [userId], references: [id])
+  turma       Turma     @relation(fields: [turmaId], references: [id])
+  matricula   Matricula @relation(fields: [matriculaId], references: [id])
+
+  @@index([turmaId])
+}
+
+model Inscricao {
+  id              Int      @id @default(autoincrement())
+  bi              String   @unique
+  nome            String
+  telefone        String
+  email           String
+  endereco        String
+  dataNascimento  DateTime?
+  // Relacionamentos
+  cursoId         Int
+  classeId        Int
+  generoId        Int
+  statusId        Int      @default(1) // PENDENTE
+  curso           Curso           @relation(fields: [cursoId], references: [id])
+  classe          Classe          @relation(fields: [classeId], references: [id])
+  genero          Genero          @relation(fields: [generoId], references: [id])
+  status          StatusInscricao @relation(fields: [statusId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  matricula       Matricula?
+  
+  @@index([bi])
+  @@index([email])
+  @@index([statusId])
+  @@index([createdAt])
+}
+
+// Adicione ao seu schema.prisma
+
+// Adicione ao seu schema.prisma
+
+
+model Matricula {
+  id              Int      @id @default(autoincrement())
+  inscricaoId     Int      @unique
+  statusId        Int      @default(1) // PENDENTE
+  pagamentoId     Int?
+  periodoId       Int
+  birthDate       DateTime
+  
+  // URLs opcionais
+  photoUrl        String?
+  certificateUrl  String?
+  medicalCertificateUrl String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  inscricao       Inscricao       @relation(fields: [inscricaoId], references: [id])
+  status          StatusMatricula @relation(fields: [statusId], references: [id])
+  periodo         Periodo         @relation(fields: [periodoId], references: [id])
+  pagamento       Pagamento?       @relation(fields: [pagamentoId], references: [id])
+  aluno           Aluno?
+  
+  @@index([statusId])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id          Int      @id @default(autoincrement())
+  to          String
+  subject     String
+  status      String   // "ENVIADO", "FALHOU"
+  messageId   String?
+  error       String?
+  createdAt   DateTime @default(now())
+  
+  @@index([to])
+  @@index([createdAt])
+}
+
+model Configuracao {
+  id        Int      @id @default(autoincrement())
+  chave     String   @unique
+  valor     String?  
+  valorNum  Int?   
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([chave])
+}
+
+model Pagamento {
+  id                Int      @id @default(autoincrement())
+  referencia        String   @unique
+  valor             Float
+  formaPagamento    String   // "DINHEIRO", "CARTAO", "TRANSFERENCIA"
+  statusId          Int      @default(1) // PENDENTE
+  dataExpiracao     DateTime
+  dataPagamento     DateTime?
+  comprovativoUrl   String?
+  observacao        String?
+  matriculas        Matricula[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  status            StatusPagamento @relation(fields: [statusId], references: [id])
+  
+  @@index([statusId])
+  @@index([dataPagamento])
+  @@index([referencia])
+}
+
+model Curso {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique
+  duracao     Int      
+  descricao   String?
+  vagas       Int      @default(40)
+  ativo       Boolean  @default(true)
+  
+  inscricoes  Inscricao[]
+  turmas      Turma[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Classe {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique 
+  descricao   String?
+  
+  inscricoes  Inscricao[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Turma {
+  id              Int      @id @default(autoincrement())
+  nome            String   @unique // "10ª INF - A", "11ª ELE - B"
+  descricao       String?
+  cursoId         Int
+  anoLetivo       String   // "2024"
+  turnoId         Int
+  vagasTotais     Int      @default(30)
+  vagasDisponiveis Int     @default(30)
+  
+  // Relacionamentos ds
+  curso           Curso    @relation(fields: [cursoId], references: [id])
+  turno           Turno    @relation(fields: [turnoId], references: [id])
+  alunos          Aluno[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([nome, anoLetivo])
+  @@index([cursoId])
+  @@index([turnoId])
+}
+
+
+model Publicacao {
+  id        Int      @id @default(autoincrement())
+  autor     String?
+  titulo    String
+  conteudo  String   @db.Text
+  resumo    String?
+  imagemUrl String?
+  categoria String   @default("NOTICIA") // NOTICIA, EVENTO, COMUNICADO
+  destaque  Boolean  @default(false)
+  publicado Boolean  @default(true)
+  visualizacoes Int   @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+
+
+  @@index([categoria])
+  @@index([destaque])
+  @@index([createdAt])
+}
