@@ -44,7 +44,6 @@ import {
   GraduationCap,
   IdCard,
   Loader2,
-  Upload,
   User,
   CheckCircle2,
   AlertCircle,
@@ -234,6 +233,7 @@ export default function MatriculaPage() {
     loadData();
   }, [bi, router, form]);
 
+  // ✅ FUNÇÃO CORRIGIDA - criar matrícula com FormData
   const criarMatricula = async (data: MatriculaForm) => {
     const formData = new FormData();
     
@@ -252,9 +252,10 @@ export default function MatriculaPage() {
       formData.append("medicalCertificate", data.medicalCertificate);
     }
 
+    // ✅ IMPORTANTE: Não defina Content-Type manualmente
     const res = await fetch("/api/matricula", {
       method: "POST",
-      body: formData,
+      body: formData, // FormData define Content-Type automaticamente
     });
 
     const result = await res.json();
@@ -285,6 +286,7 @@ export default function MatriculaPage() {
     return result;
   };
 
+  // ✅ FUNÇÃO CORRIGIDA - onSubmit
   const onSubmit = async (data: MatriculaForm) => {
     setSubmitting(true);
     const toastId = toast.loading("Processando matrícula...");
@@ -310,7 +312,7 @@ export default function MatriculaPage() {
       });
 
     } catch (error) {
-      console.error(error);
+      console.error("❌ Erro detalhado:", error);
       toast.error("Erro na matrícula", {
         id: toastId,
         description: error instanceof Error ? error.message : "Tente novamente mais tarde.",
