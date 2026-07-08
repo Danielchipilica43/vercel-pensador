@@ -82,7 +82,7 @@ function gerarEmailAprovacao(nome: string, curso: string, classe: string, bi: st
         </div>
 
         <div style="text-align: center; margin: 25px 0;">
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/portal" 
+          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/status" 
              style="display: inline-block; background: #f97316; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
             🔗 Continuar para Matrícula
           </a>
