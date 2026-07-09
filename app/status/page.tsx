@@ -28,11 +28,8 @@ import {
   Search,
   User,
   IdCard,
-  Phone,
   Mail,
   GraduationCap,
-  BookOpen,
-  Calendar,
   CheckCircle2,
   XCircle,
   Clock,
@@ -130,109 +127,79 @@ export default function StatusPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const buscarStatus = async () => {
-  if (!bi.trim()) {
-    toast.error("Campo obrigatório", {
-      description: "Por favor, digite o número do BI.",
-    });
-    return;
-  }
-
-  //console.log("🔍 1. Iniciando busca para BI:", bi.trim());
-
-  setIsLoading(true);
-  const toastId = toast.loading("Consultando inscrição...");
-  
-  //console.log("📢 Toast de loading ID:", toastId);
-
-  try {
-    //console.log("🔍 2. Fazendo fetch para:", `/api/inscricao?bi=${bi.trim()}`);
-    
-    const response = await fetch(`/api/inscricao?bi=${bi.trim()}`);
-    //console.log("🔍 3. Status da resposta:", response.status);
-    
-    const data = await response.json();
-    //console.log("🔍 4. Dados recebidos:", data);
-    //console.log("🔍 5. É array?", Array.isArray(data));
-    //console.log("🔍 6. Tamanho do array:", Array.isArray(data) ? data.length : 'N/A');
-
-    // 🔑 VERIFICAÇÃO: Array vazio = BI não encontrado
-    if (Array.isArray(data) && data.length === 0) {
-      //console.log("🔍 7. Array vazio detectado! BI não encontrado.");
-      //console.log("📢 Tentando mostrar toast de erro...");
-      
-      // Fecha o toast de loading
-      toast.dismiss(toastId);
-      
-      // Mostra o toast de erro
-      toast.error("BI não registrado", {
-        description: "⚠️ Este número de BI não foi encontrado no nosso sistema. Verifique se digitou corretamente ou entre em contato com a secretaria.",
-        duration: 5000,
+    if (!bi.trim()) {
+      toast.error("Campo obrigatório", {
+        description: "Por favor, digite o número do BI.",
       });
-      
-      // Fallback: alert caso o toast não funcione
-      //console.log("📢 Fallback: Mostrando alert");
-      alert("⚠️ BI NÃO ENCONTRADO! O número " + bi.trim() + " não está registrado no sistema.");
-      
-      setResultado(null);
-      setIsLoading(false);
       return;
     }
 
-    //console.log("🔍 8. Dados encontrados, processando...");
-    
-    const inscricao = data[0];
-    //console.log("🔍 9. Inscrição:", inscricao);
+    setIsLoading(true);
+    const toastId = toast.loading("Consultando inscrição...");
 
-    if (!inscricao || !inscricao.id) {
-      //console.log("🔍 10. Inscrição inválida ou sem ID");
+    try {
+      const response = await fetch(`/api/inscricao?bi=${bi.trim()}`);
+      const data = await response.json();
+
+      // Array vazio = BI não encontrado
+      if (Array.isArray(data) && data.length === 0) {
+        toast.dismiss(toastId);
+        toast.error("BI não registrado", {
+          description:
+            "⚠️ Este número de BI não foi encontrado no nosso sistema. Verifique se digitou corretamente ou entre em contato com a secretaria.",
+          duration: 5000,
+        });
+        setResultado(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const inscricao = data[0];
+
+      if (!inscricao || !inscricao.id) {
+        toast.dismiss(toastId);
+        toast.error("Dados inválidos", {
+          description: "Os dados retornados estão incompletos.",
+          duration: 5000,
+        });
+        setResultado(null);
+        setIsLoading(false);
+        return;
+      }
+
       toast.dismiss(toastId);
-      toast.error("Dados inválidos", {
-        description: "Os dados retornados estão incompletos.",
+
+      if (inscricao.matricula?.status?.nome === "CONCLUIDA") {
+        toast.success("Processo concluído com sucesso! 🎉", {
+          description: `Parabéns ${inscricao.nome}! Seu processo de formação foi concluído com sucesso.`,
+          duration: 8000,
+        });
+      } else {
+        toast.success("Inscrição encontrada", {
+          description: `Dados da inscrição de ${inscricao.nome}`,
+        });
+      }
+
+      setResultado(inscricao);
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Erro na consulta de status:", error);
+      toast.dismiss(toastId);
+      toast.error("Erro na consulta", {
+        description: "Não foi possível consultar a inscrição. Verifique sua conexão.",
         duration: 5000,
       });
       setResultado(null);
+    } finally {
       setIsLoading(false);
-      return;
-    }
-
-    //console.log("🔍 11. Tudo OK! Abrindo modal...");
-    
-    toast.dismiss(toastId);
-    
-    if (inscricao.matricula?.status?.nome === "CONCLUIDA") {
-      toast.success("Processo concluído com sucesso! 🎉", {
-        description: `Parabéns ${inscricao.nome}! Seu processo de formação foi concluído com sucesso.`,
-        duration: 8000,
-      });
-    } else {
-      toast.success("Inscrição encontrada", {
-        description: `Dados da inscrição de ${inscricao.nome}`,
-      });
-    }
-
-    setResultado(inscricao);
-    setIsDialogOpen(true);
-    
-  } catch (error) {
-    //console.error("🔍 ERRO:", error);
-    toast.dismiss(toastId);
-    toast.error("Erro na consulta", {
-      description: "Não foi possível consultar a inscrição. Verifique sua conexão.",
-      duration: 5000,
-    });
-    setResultado(null);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  const iniciarMatricula = () => {
-    if (resultado) {
-      toast.loading("Redirecionando para matrícula...");
-      router.push(`/matricula?bi=${resultado.bi}`);
     }
   };
 
+  const iniciarMatricula = () => {
+    if (resultado) {
+      router.push(`/matricula?bi=${resultado.bi}`);
+    }
+  };
 
   const verFicha = () => {
     if (resultado) {
@@ -242,13 +209,14 @@ export default function StatusPage() {
 
   const imprimirFicha = () => {
     if (resultado) {
-      window.open(`/ficha-inscricao/${resultado.id}`, '_blank');
+      window.open(`/ficha-inscricao/${resultado.id}`, "_blank");
     }
   };
 
-  const jaMatriculado = resultado?.matricula && 
-    (resultado.matricula.status.nome === "ATIVA" || 
-     resultado.matricula.status.nome === "CONCLUIDA");
+  const jaMatriculado =
+    resultado?.matricula &&
+    (resultado.matricula.status.nome === "ATIVA" ||
+      resultado.matricula.status.nome === "CONCLUIDA");
 
   const isConcluido = resultado?.matricula?.status?.nome === "CONCLUIDA";
 
@@ -265,17 +233,17 @@ export default function StatusPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-PT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+    return new Date(dateString).toLocaleDateString("pt-PT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-AO', {
-      style: 'currency',
-      currency: 'AOA',
+    return new Intl.NumberFormat("pt-AO", {
+      style: "currency",
+      currency: "AOA",
       minimumFractionDigits: 0,
     }).format(value);
   };
@@ -288,15 +256,13 @@ export default function StatusPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
             className="text-gray-600 hover:text-blue-600"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <h1 className="text-2xl font-bold text-blue-600">
-            Status da Candidatura
-          </h1>
+          <h1 className="text-2xl font-bold text-blue-600">Status da Candidatura</h1>
         </div>
 
         {/* Card Principal */}
@@ -307,9 +273,7 @@ export default function StatusPage() {
                 <Search className="w-6 h-6" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold">
-                  Consultar Inscrição
-                </CardTitle>
+                <CardTitle className="text-xl font-bold">Consultar Inscrição</CardTitle>
                 <CardDescription className="text-blue-100">
                   Digite seu BI para verificar o status
                 </CardDescription>
@@ -333,7 +297,7 @@ export default function StatusPage() {
                       placeholder="Ex: 123456789LA045"
                       value={bi}
                       onChange={(e) => setBi(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && buscarStatus()}
+                      onKeyDown={(e) => e.key === "Enter" && buscarStatus()}
                       className="pl-10 pr-4 py-6 text-lg uppercase"
                       maxLength={14}
                     />
@@ -386,10 +350,9 @@ export default function StatusPage() {
                 {isConcluido ? "🎓 Parabéns! Curso Concluído 🎓" : "Detalhes da Inscrição"}
               </DialogTitle>
               <DialogDescription>
-                {isConcluido 
+                {isConcluido
                   ? "Você concluiu sua formação com sucesso! Confira seus dados abaixo."
-                  : "Informações completas da sua candidatura"
-                }
+                  : "Informações completas da sua candidatura"}
               </DialogDescription>
             </DialogHeader>
 
@@ -403,7 +366,7 @@ export default function StatusPage() {
                       🎉 Processo Concluído com Sucesso! 🎉
                     </h2>
                     <p className="text-gray-700">
-                      Parabéns <strong>{resultado.nome}</strong>! Você concluiu sua formação em 
+                      Parabéns <strong>{resultado.nome}</strong>! Você concluiu sua formação em
                       <strong> {resultado.curso.nome}</strong>.
                     </p>
                     <p className="text-gray-600 text-sm mt-2">
@@ -418,7 +381,11 @@ export default function StatusPage() {
                     <p className="text-sm text-gray-500 mb-1">
                       {resultado.matricula ? "Status da Matrícula" : "Status da Inscrição"}
                     </p>
-                    <StatusBadge status={resultado.matricula ? resultado.matricula.status.nome : resultado.status.nome} />
+                    <StatusBadge
+                      status={
+                        resultado.matricula ? resultado.matricula.status.nome : resultado.status.nome
+                      }
+                    />
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {resultado.status.nome === "APROVADA" && !jaMatriculado && (
@@ -429,7 +396,7 @@ export default function StatusPage() {
                         Iniciar Matrícula
                       </Button>
                     )}
-                   
+
                     <Button
                       onClick={verFicha}
                       variant="outline"
@@ -555,7 +522,8 @@ export default function StatusPage() {
                           </div>
                           {resultado.matricula.periodo && (
                             <p className="text-sm text-gray-600">
-                              <span className="font-medium">Período:</span> {resultado.matricula.periodo.nome}
+                              <span className="font-medium">Período:</span>{" "}
+                              {resultado.matricula.periodo.nome}
                             </p>
                           )}
                           {resultado.matricula.pagamento && (
@@ -584,7 +552,7 @@ export default function StatusPage() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
                 Fechar
               </Button>
-              
+
               {resultado?.status.nome === "APROVADA" && !jaMatriculado && (
                 <Button
                   onClick={iniciarMatricula}
@@ -593,7 +561,6 @@ export default function StatusPage() {
                   Iniciar Matrícula
                 </Button>
               )}
-          
             </DialogFooter>
           </DialogContent>
         </Dialog>
