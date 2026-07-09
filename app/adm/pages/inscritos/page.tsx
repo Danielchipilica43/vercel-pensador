@@ -1,5 +1,3 @@
-//inscritos/page.tsx
-
 "use client";
 
 import useSWR from "swr";
@@ -47,6 +45,8 @@ import {
   Clock,
   Download,
   Eye,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 type Inscricao = {
@@ -64,7 +64,31 @@ type Inscricao = {
   createdAt: string;
 };
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+type ApiResponse = {
+  success: boolean;
+  data: Inscricao[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+  error?: string;
+  code?: string;
+};
+
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const data: ApiResponse = await response.json();
+  
+  if (!data.success) {
+    throw new Error(data.error || "Erro ao carregar inscrições");
+  }
+  
+  return data;
+};
 
 const statusConfig = {
   PENDENTE: {
@@ -90,10 +114,22 @@ export default function AdminInscricoesPage() {
   const [busca, setBusca] = useState<string>("");
   const [inscricaoSelecionada, setInscricaoSelecionada] = useState<Inscricao | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const ITENS_POR_PAGINA = 50;
 
-  const { data: inscricoes, mutate, isLoading } = useSWR<Inscricao[]>("/api/listaInscritos", fetcher, {
-    refreshInterval: 5000,
-  });
+  // Buscar dados da API com paginação
+  const { data: apiResponse, mutate, isLoading, error } = useSWR<ApiResponse>(
+    `/api/listaInscritos?page=${paginaAtual}&limit=${ITENS_POR_PAGINA}`,
+    fetcher,
+    {
+      refreshInterval: 30000, // Atualizar a cada 30 segundos
+      revalidateOnFocus: false,
+    }
+  );
+
+  // Extrair dados da resposta
+  const inscricoes = apiResponse?.data || [];
+  const pagination = apiResponse?.pagination;
 
   const atualizarStatus = async (id: number, status: "APROVADA" | "REJEITADA") => {
     const toastId = toast.loading(`A ${status === "APROVADA" ? "aprovar" : "rejeitar"} inscrição...`);
@@ -131,8 +167,8 @@ export default function AdminInscricoesPage() {
     }
   };
 
-  // Filtrar inscrições
-  const inscricoesFiltradas = inscricoes?.filter(insc => {
+  // Filtrar inscrições (apenas no frontend)
+  const inscricoesFiltradas = inscricoes.filter(insc => {
     const matchStatus = !filtroStatus || insc.status === filtroStatus;
     const matchCurso = !filtroCurso || insc.curso === filtroCurso;
     const matchBusca = !busca ||
@@ -141,14 +177,14 @@ export default function AdminInscricoesPage() {
       insc.email.toLowerCase().includes(busca.toLowerCase());
 
     return matchStatus && matchCurso && matchBusca;
-  }) ?? [];
+  });
 
-  // Estatísticas
+  // Estatísticas (baseado em todos os dados, não apenas filtrados)
   const stats = {
-    total: inscricoes?.length || 0,
-    pendentes: inscricoes?.filter(i => i.status === "PENDENTE").length || 0,
-    aprovadas: inscricoes?.filter(i => i.status === "APROVADA").length || 0,
-    rejeitadas: inscricoes?.filter(i => i.status === "REJEITADA").length || 0,
+    total: inscricoes.length || 0,
+    pendentes: inscricoes.filter(i => i.status === "PENDENTE").length || 0,
+    aprovadas: inscricoes.filter(i => i.status === "APROVADA").length || 0,
+    rejeitadas: inscricoes.filter(i => i.status === "REJEITADA").length || 0,
   };
 
   const StatusBadge = ({ status }: { status: Inscricao['status'] }) => {
@@ -201,7 +237,31 @@ export default function AdminInscricoesPage() {
     toast.success("Dados exportados com sucesso!");
   };
 
-  if (isLoading) {
+  // Mostrar erro se houver
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Erro ao carregar inscrições
+            </h3>
+            <p className="text-gray-600 text-sm mb-4">
+              {error.message || "Ocorreu um erro ao buscar os dados. Tente novamente."}
+            </p>
+            <Button onClick={() => mutate()} className="bg-orange-500 hover:bg-orange-600">
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading && !apiResponse) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-96">
@@ -223,6 +283,11 @@ export default function AdminInscricoesPage() {
             <h1 className="text-3xl font-bold text-gray-800">Inscrições</h1>
             <p className="text-gray-500 mt-1">
               Gerencie todas as inscrições pendentes
+              {pagination && (
+                <span className="ml-2 text-sm text-gray-400">
+                  (Página {pagination.page} de {pagination.totalPages})
+                </span>
+              )}
             </p>
           </div>
           <Button
@@ -302,7 +367,7 @@ export default function AdminInscricoesPage() {
                   <SelectValue placeholder="Filtrar por status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
+                  <SelectItem value="">Todos os status</SelectItem>
                   <SelectItem value="PENDENTE">Pendentes</SelectItem>
                   <SelectItem value="APROVADA">Aprovadas</SelectItem>
                   <SelectItem value="REJEITADA">Rejeitadas</SelectItem>
@@ -313,7 +378,7 @@ export default function AdminInscricoesPage() {
                   <SelectValue placeholder="Filtrar por curso" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os cursos</SelectItem>
+                  <SelectItem value="">Todos os cursos</SelectItem>
                   <SelectItem value="INFORMATICA">Informática</SelectItem>
                   <SelectItem value="ELECTRICIDADE">Electricidade</SelectItem>
                   <SelectItem value="MAQUINAS_E_MOTORES">Máquinas e Motores</SelectItem>
@@ -323,7 +388,7 @@ export default function AdminInscricoesPage() {
             </div>
             <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
               <span>
-                Mostrando {inscricoesFiltradas.length} de {inscricoes?.length || 0} inscrições
+                Mostrando {inscricoesFiltradas.length} de {inscricoes.length} inscrições
               </span>
               {(filtroStatus || filtroCurso || busca) && (
                 <Button
@@ -351,7 +416,7 @@ export default function AdminInscricoesPage() {
                 Nenhuma inscrição encontrada
               </h3>
               <p className="text-gray-500">
-                {inscricoes?.length === 0
+                {inscricoes.length === 0
                   ? "Não há inscrições no momento."
                   : "Tente ajustar os filtros da pesquisa."}
               </p>
@@ -426,6 +491,36 @@ export default function AdminInscricoesPage() {
                 </tbody>
               </table>
             </div>
+            
+            {/* Paginação */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t">
+                <div className="text-sm text-gray-500">
+                  Mostrando {inscricoes.length} de {pagination.total} registros
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPaginaAtual(paginaAtual - 1)}
+                    disabled={!pagination.hasPrevPage}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-gray-600 px-3">
+                    Página {pagination.page} de {pagination.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPaginaAtual(paginaAtual + 1)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
