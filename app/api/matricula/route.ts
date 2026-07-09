@@ -17,7 +17,7 @@ async function fileToBase64(file: File): Promise<string> {
 
 // POST - Criar matrícula
 export async function POST(req: NextRequest) {
-  console.log("📝 Iniciando criação de matrícula...");
+ 
   
   try {
     // ✅ Usando formData() para receber arquivos
